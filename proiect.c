@@ -8,7 +8,7 @@
 #include <string.h>
 
 
-int verifyArguments(int argumentsNumber)
+int verifyArgumentsEXIT(int argumentsNumber)
 {
     if(argumentsNumber != 2)
     {
@@ -63,11 +63,12 @@ void tree(char *filename)
 
     if((directory = openDirectory(filename)) == NULL)
     {
+        //perror("Could not open directory!\n");
         return;
     }
 
 
-    char tempFileName[CHAR_MAX];
+    char tempFileName[1024];
     struct dirent *directoryInfo;
 
 
@@ -78,10 +79,7 @@ void tree(char *filename)
         {
             printf("%s\n", directoryInfo->d_name);
 
-            strcpy(tempFileName, filename);
-            strcat(tempFileName, "/");
-            strcat(tempFileName, directoryInfo->d_name);
-
+            sprintf(tempFileName, "%s/%s", filename, directoryInfo->d_name);
             tree(tempFileName);
         }
     }
@@ -92,26 +90,22 @@ void tree(char *filename)
 
 int main(int argc, char *argv[])
 {
-    //DIR *directory = NULL;
-
-    if(verifyArguments(argc) == 1)
+    if(verifyArgumentsEXIT(argc) == 1)
     {
-        perror("Insufficient arguments!\n");
-        exit(1);
-        
+        perror("Not enough arguments!\n");
+        exit(EXIT_FAILURE);
     }
 
+    char tempFileName[CHAR_MAX];
+    strcpy(tempFileName, argv[1]);
+
     verifyDirEXIT(argv[1]);
+
+
 
     
     if(verifyName(argv[1]) == 0)
     {
-        char tempFileName[CHAR_MAX];
-        
-        strcpy(tempFileName, argv[1]);
-        printf("%s\n", tempFileName);
-    
-
 
         tree(tempFileName);
     }

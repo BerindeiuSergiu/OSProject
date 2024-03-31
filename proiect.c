@@ -86,6 +86,7 @@ void tree(char *filename)
         }
     }
 
+
     closedir(directory);
 }
 

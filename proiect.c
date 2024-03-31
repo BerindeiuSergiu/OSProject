@@ -1,9 +1,11 @@
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
 #include <dirent.h>
+#include <string.h>
 
 
 int verifyArguments(int argumentsNumber)
@@ -24,7 +26,6 @@ int verifyName(char *DirectoryName)
 }
 
 
-
 void verifyDirEXIT(char *filename)
 {
     if((verifyName(filename)) != 0)
@@ -35,18 +36,57 @@ void verifyDirEXIT(char *filename)
 }
 
 
+void parseDirectory(DIR *dir)
+{
+    struct dirent *date = NULL;
+    while((date = readdir(dir)) != NULL)
+    {
+        printf("%s\n", date->d_name);
+    }
+}
+
+DIR *openDirectory(char *filename)
+{
+    DIR *dir = NULL;
+    if((dir = opendir(filename)) == NULL)
+    {
+        perror("Could not open the directory\n");
+        exit(EXIT_FAILURE);
+    }
+    return dir;
+}
 
 int main(int argc, char *argv[])
 {
+    DIR *directory = NULL;
+
     if(verifyArguments(argc) == 1)
     {
         perror("Insufficient arguments!\n");
         exit(1);
         
     }
-    printf("%s\n", argv[1]);
+
     verifyDirEXIT(argv[1]);
-    //DIR *directorCurent = NULL;
+
+    
+    if(verifyName(argv[1]) == 0)
+    {
+        char tempFileName[CHAR_MAX];
+        
+        strcpy(tempFileName, argv[1]);
+        printf("%s\n", tempFileName);
+        
+        
+        directory = openDirectory(tempFileName);
+
+        struct dirent *date = NULL;
+        while((date = readdir(directory)) != NULL)
+        {
+            printf("%s\n", date->d_name);
+        }
+
+    }
 
 
     return 0;

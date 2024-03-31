@@ -45,20 +45,53 @@ void parseDirectory(DIR *dir)
     }
 }
 
+
 DIR *openDirectory(char *filename)
 {
     DIR *dir = NULL;
     if((dir = opendir(filename)) == NULL)
     {
-        perror("Could not open the directory\n");
-        exit(EXIT_FAILURE);
+        return NULL;
     }
+
     return dir;
+}
+
+void tree(char *filename)
+{
+    DIR *directory = NULL;
+
+    if((directory = openDirectory(filename)) == NULL)
+    {
+        return;
+    }
+
+
+    char tempFileName[CHAR_MAX];
+    struct dirent *directoryInfo;
+
+
+    printf("Ne aflam in directorul:%s\n", filename);
+    while((directoryInfo = readdir(directory)) != NULL)
+    {
+        if(strcmp (directoryInfo->d_name, "." ) != 0 && strcmp(directoryInfo->d_name, "..") != 0)
+        {
+            printf("%s\n", directoryInfo->d_name);
+
+            strcpy(tempFileName, filename);
+            strcat(tempFileName, "/");
+            strcat(tempFileName, directoryInfo->d_name);
+
+            tree(tempFileName);
+        }
+    }
+
+    closedir(directory);
 }
 
 int main(int argc, char *argv[])
 {
-    DIR *directory = NULL;
+    //DIR *directory = NULL;
 
     if(verifyArguments(argc) == 1)
     {
@@ -76,16 +109,10 @@ int main(int argc, char *argv[])
         
         strcpy(tempFileName, argv[1]);
         printf("%s\n", tempFileName);
-        
-        
-        directory = openDirectory(tempFileName);
+    
 
-        struct dirent *date = NULL;
-        while((date = readdir(directory)) != NULL)
-        {
-            printf("%s\n", date->d_name);
-        }
 
+        tree(tempFileName);
     }
 
 

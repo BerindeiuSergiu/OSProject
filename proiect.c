@@ -1,5 +1,10 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <dirent.h>
+
 
 int verifyArguments(int argumentsNumber)
 {
@@ -10,6 +15,14 @@ int verifyArguments(int argumentsNumber)
     return 0;
 }
 
+int verifyDirectory(char *DirectoryName)
+{
+    struct stat path;
+    stat(DirectoryName, &path);
+    return S_ISREG(path.st_mode);
+}
+
+
 int main(int argc, char *argv[])
 {
     if(verifyArguments(argc) == 1)
@@ -19,7 +32,7 @@ int main(int argc, char *argv[])
         
     }
 
-
+    DIR *directorCurent;
 
 
     return 0;

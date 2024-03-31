@@ -15,12 +15,25 @@ int verifyArguments(int argumentsNumber)
     return 0;
 }
 
-int verifyDirectory(char *DirectoryName)
+
+int verifyName(char *DirectoryName)
 {
     struct stat path;
     stat(DirectoryName, &path);
     return S_ISREG(path.st_mode);
 }
+
+
+
+void verifyDirEXIT(char *filename)
+{
+    if((verifyName(filename)) != 0)
+    {
+        perror("Fisierul nu este de tip director");
+        exit(EXIT_FAILURE);
+    }
+}
+
 
 
 int main(int argc, char *argv[])
@@ -31,8 +44,9 @@ int main(int argc, char *argv[])
         exit(1);
         
     }
-
-    DIR *directorCurent;
+    printf("%s\n", argv[1]);
+    verifyDirEXIT(argv[1]);
+    //DIR *directorCurent = NULL;
 
 
     return 0;

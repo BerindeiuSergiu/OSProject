@@ -60,6 +60,40 @@ DIR *openDirectory(char *filename)
 }
 
 
+void printVersion(int fd, struct stat buffer)
+{
+	char st_dev[64];
+	sprintf(st_dev, "%ld", buffer.st_dev);
+	char st_ino[64];
+	sprintf(st_ino, "%ld", buffer.st_ino);
+	char st_mode[64];
+	sprintf(st_mode, "%d", buffer.st_mode);
+	char st_nlink[64];
+	sprintf(st_nlink, "%ld", buffer.st_nlink);
+	char st_uid[64];
+	sprintf(st_uid, "%d", buffer.st_uid);
+	char st_gid[64];
+	sprintf(st_gid, "%d", buffer.st_gid);
+	char st_size[64];
+	sprintf(st_size, "%ld", buffer.st_size);
+
+	char data[1024];
+
+	sprintf(data, "%s\n%s\n%s\n%s\n%s\n%s\n%s\n\n", st_dev, st_ino, st_mode, st_nlink, st_uid, st_gid, st_size);
+
+
+	if(write(fd, data, strlen(data)) == -1)
+	{
+		perror("Could not write!\n");
+		exit(-2);
+	}
+
+
+}
+
+
+
+
 //filename = path
 
 
@@ -83,31 +117,53 @@ void tree(char *filename)
       continue;
     }
 
+	if(strstr(directoryInfo->d_name, "snapshot") != NULL)
+	{
+		continue;
+	}
+
+    sprintf(tempFileName, "%s/%s", filename, directoryInfo->d_name);
     if (directoryInfo->d_type == DT_DIR) 
     {
-        sprintf(tempFileName, "%s/%s", filename, directoryInfo->d_name);
-
         tree(tempFileName);
     }
 
-      char path[1024] = "";
-      struct stat *buffer = NULL;
-      int fd = 0;
+    char path[1024] = "";
+    struct stat buffer;
+    int fd = 0;
 
-      sprintf(path, "%s/%s_snapshot", globalPath ,directoryInfo->d_name);
-      printf("%s\n", path);
+    sprintf(path, "%s/%s_snapshot", globalPath , directoryInfo->d_name);
+    printf("%s\n", path);
 
-      if ((fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, MaxPerms)) == -1) 
-      {
-        perror("Files could not be created\n");
-        exit(EXIT_FAILURE);
-      }
-      
+    if ((fd = open(path, O_WRONLY | O_APPEND | O_CREAT, MaxPerms)) == -1) 
+    {
+      perror("Files could not be created\n");
+      exit(EXIT_FAILURE);
+    }
 
+    if(lstat(tempFileName, &buffer))
+    {
+      perror("Could not get data!\n");
+      exit(-1);
+    }
+
+	//daca e se poate cu append deschis
+
+	printVersion(fd, buffer);
+
+	if(close(fd) == -1)
+	{
+		perror("Could not close the snapshot file\n");
+		exit(-3);
+	}
 
 
   }
-  closedir(directory);
+  if(closedir(directory) == -1)
+  {
+	perror("Could not close the directory\n");
+	exit(-1);
+  }
 }
 
 int main(int argc, char *argv[]) {

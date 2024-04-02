@@ -1,115 +1,129 @@
+#include <dirent.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <unistd.h>
-#include <dirent.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+
+#define MaxPerms S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH
+
+char globalPath[208]="/home/bsergiu/TestFiles";
 
 
-int verifyArgumentsEXIT(int argumentsNumber)
+
+int verifyArgumentsEXIT(int argumentsNumber) 
 {
-    if(argumentsNumber != 2)
-    {
-        return 1;
-    }
-    return 0;
+  if (argumentsNumber != 2) 
+  {
+    return 1;
+  }
+  return 0;
+}
+
+int verifyName(char *DirectoryName) 
+{
+  struct stat path;
+  stat(DirectoryName, &path);
+  return S_ISREG(path.st_mode);
+}
+
+void verifyDirEXIT(char *filename) 
+{
+  if ((verifyName(filename)) != 0) 
+  {
+    perror("Fisierul nu este de tip director");
+    exit(EXIT_FAILURE);
+  }
+}
+
+void parseDirectory(DIR *dir) 
+{
+  struct dirent *date = NULL;
+  while ((date = readdir(dir)) != NULL) 
+  {
+    printf("%s\n", date->d_name);
+  }
+}
+
+DIR *openDirectory(char *filename) 
+{
+  DIR *dir = NULL;
+  if ((dir = opendir(filename)) == NULL) 
+  {
+    return NULL;
+  }
+
+  return dir;
 }
 
 
-int verifyName(char *DirectoryName)
-{
-    struct stat path;
-    stat(DirectoryName, &path);
-    return S_ISREG(path.st_mode);
-}
+//filename = path
 
 
-void verifyDirEXIT(char *filename)
+void tree(char *filename) 
 {
-    if((verifyName(filename)) != 0)
+  DIR *directory = NULL;
+
+  if ((directory = openDirectory(filename)) == NULL) 
+  {
+    exit(-1);
+  }
+
+  char tempFileName[1024];
+  struct dirent *directoryInfo;
+
+
+  while ((directoryInfo = readdir(directory)) != NULL) 
+  {
+    if((strcmp(directoryInfo->d_name, ".") == 0) || (strcmp(directoryInfo->d_name, "..") == 0))
     {
-        perror("Fisierul nu este de tip director");
-        exit(EXIT_FAILURE);
-    }
-}
-
-
-void parseDirectory(DIR *dir)
-{
-    struct dirent *date = NULL;
-    while((date = readdir(dir)) != NULL)
-    {
-        printf("%s\n", date->d_name);
-    }
-}
-
-
-DIR *openDirectory(char *filename)
-{
-    DIR *dir = NULL;
-    if((dir = opendir(filename)) == NULL)
-    {
-        return NULL;
+      continue;
     }
 
-    return dir;
-}
-
-void tree(char *filename)
-{
-    DIR *directory = NULL;
-
-    if((directory = openDirectory(filename)) == NULL)
+    if (directoryInfo->d_type == DT_DIR) 
     {
-        //perror("Could not open directory!\n");
-        return;
-    }
-
-
-    char tempFileName[1024];
-    struct dirent *directoryInfo;
-
-
-    printf("Ne aflam in directorul:%s\n", filename);
-    while((directoryInfo = readdir(directory)) != NULL)
-    {
-        if(strcmp (directoryInfo->d_name, "." ) != 0 && strcmp(directoryInfo->d_name, "..") != 0)
-        {
-            printf("%s\n", directoryInfo->d_name);
-
-            sprintf(tempFileName, "%s/%s", filename, directoryInfo->d_name);
-            tree(tempFileName);
-        }
-    }
-
-
-    closedir(directory);
-}
-
-int main(int argc, char *argv[])
-{
-    if(verifyArgumentsEXIT(argc) == 1)
-    {
-        perror("Not enough arguments!\n");
-        exit(EXIT_FAILURE);
-    }
-
-    char tempFileName[CHAR_MAX];
-    strcpy(tempFileName, argv[1]);
-
-    verifyDirEXIT(argv[1]);
-
-
-
-    
-    if(verifyName(argv[1]) == 0)
-    {
+        sprintf(tempFileName, "%s/%s", filename, directoryInfo->d_name);
 
         tree(tempFileName);
     }
 
+      char path[1024] = "";
+      struct stat *buffer = NULL;
+      int fd = 0;
 
-    return 0;
+      sprintf(path, "%s/%s_snapshot", globalPath ,directoryInfo->d_name);
+      printf("%s\n", path);
+
+      if ((fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, MaxPerms)) == -1) 
+      {
+        perror("Files could not be created\n");
+        exit(EXIT_FAILURE);
+      }
+      
+
+
+
+  }
+  closedir(directory);
+}
+
+int main(int argc, char *argv[]) {
+  if (verifyArgumentsEXIT(argc) == 1) 
+  {
+    perror("Not enough arguments!\n");
+    exit(EXIT_FAILURE);
+  }
+
+  char tempFileName[CHAR_MAX];
+  strcpy(tempFileName, argv[1]);
+
+  if (verifyName(argv[1]) == 0) 
+  {
+    tree(tempFileName);
+  }
+
+  return 0;
 }

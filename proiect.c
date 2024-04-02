@@ -8,9 +8,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#define MaxPerms                                                          \
-    S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | \
-        S_IWOTH | S_IXOTH
+#define MaxPerms S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH
 
 char globalPath[208] = "/home/bsergiu/TestFiles";
 
@@ -79,9 +77,13 @@ void printVersion(int fd, struct stat buffer) // a lot of data, mi se pare ca as
 
     char data[1024];
 
+
+	//practic ce ajunge in fisier-ul snapshot
     sprintf(data, "ID: %s\nI-NODE NUMBER: %s\nFile TYPE : %s\nNumber of HARDLINKS: %s\nID OWNER: %s\nID GROUP: %s\nSIZE: %s\n\n", st_dev, st_ino, st_mode, st_nlink, st_uid, st_gid, st_size);
 
-    if (write(fd, data, strlen(data)) == -1)
+
+
+    if (write(fd, data, strlen(data)) == -1)//verificam output write
     {
         perror("Could not write!\n");
         exit(-2);
@@ -94,7 +96,7 @@ void tree(char *filename)
 {
     DIR *directory = NULL;
 
-    if ((directory = openDirectory(filename)) == NULL)
+    if ((directory = openDirectory(filename)) == NULL) // verificam daca s-a deschis directorul corect
     {
         exit(-1);
     }
@@ -158,7 +160,7 @@ void tree(char *filename)
 
 
 
-void treeSINGLE(char *filename)
+void treeSINGLE(char *filename)//versiunea cu un singur fisier
 {
     DIR *directory = NULL;
 
@@ -243,7 +245,7 @@ int main(int argc, char *argv[])
 
     if (verifyName(argv[1]) == 0)
     {
-        treeSINGLE(tempFileName);
+        tree(tempFileName);
     }
 
     return 0;

@@ -14,17 +14,17 @@ char globalPath[208] = "/home/bsergiu/TestFiles";
 
 int verifyArgumentsEXIT(int argumentsNumber)
 {
-    if (argumentsNumber != 2)
+    if (argumentsNumber == 3)
     {
-        return 1;
+        return 0;
     }
-    return 0;
+    return 1;
 }
 
 int verifyName(char *DirectoryName)
 {
     struct stat path;
-    stat(DirectoryName, &path);
+    lstat(DirectoryName, &path);
     return S_ISREG(path.st_mode);
 }
 
@@ -37,14 +37,6 @@ void verifyDirEXIT(char *filename)
     }
 }
 
-void parseDirectory(DIR *dir)
-{
-    struct dirent *date = NULL;
-    while ((date = readdir(dir)) != NULL)
-    {
-        printf("%s\n", date->d_name);
-    }
-}
 
 DIR *openDirectory(char *filename)
 {
@@ -117,7 +109,7 @@ void tree(char *filename)
         }
 
         sprintf(tempFileName, "%s/%s", filename, directoryInfo->d_name); // creez urmatorul "subdirector in care sa ma duc"
-        if (directoryInfo->d_type == DT_DIR)//verific daca e director, pentru a putea continua parcurgerea
+        if (verifyName(tempFileName) == 0)//verific daca e director, pentru a putea continua parcurgerea
         {
             tree(tempFileName);
         }
@@ -126,7 +118,7 @@ void tree(char *filename)
         struct stat buffer;
         int fd = 0;
 
-        sprintf(path, "%s/%s_snapshot", globalPath, directoryInfo->d_name); // filename pentru locatia lor direct in subdirectorul lor
+        sprintf(path, "%s/%s_snapshot", filename, directoryInfo->d_name); // filename pentru locatia lor direct in subdirectorul lor
 
         if ((fd = open(path, O_WRONLY | O_APPEND | O_CREAT, MaxPerms)) == -1)//verfic file descriptor-ul
         {
@@ -160,7 +152,7 @@ void tree(char *filename)
 
 
 
-void treeSINGLE(char *filename)//versiunea cu un singur fisier
+void treeSINGLE(char *filename, char *globalSaveDirectory)//versiunea cu un singur fisier
 {
     DIR *directory = NULL;
 
@@ -172,11 +164,13 @@ void treeSINGLE(char *filename)//versiunea cu un singur fisier
     char tempFileName[1024];
     struct dirent *directoryInfo;
 
+    printf("%s\n", filename);
+
     while((directoryInfo = readdir(directory)) != NULL)
     {
-            int fd = 0;
-    		char path[1024] = "";
-    		sprintf(path, "%s/Snapshots.txt", globalPath); // filename pentru locatia lor direct in subdirectorul lor
+        int fd = 0;
+    	char path[1024] = "";
+    	sprintf(path, "%s/Snapshots.txt", globalSaveDirectory); // filename pentru locatia lor direct in subdirectorul lor
 
     	if((fd = open(path, O_WRONLY | O_APPEND | O_CREAT, MaxPerms)) == -1)//verfic file descriptor-ul
     	{
@@ -196,9 +190,9 @@ void treeSINGLE(char *filename)//versiunea cu un singur fisier
         }
 
         sprintf(tempFileName, "%s/%s", filename, directoryInfo->d_name); // creez urmatorul "subdirector in care sa ma duc"
-        if (directoryInfo->d_type == DT_DIR)//verific daca e director, pentru a putea continua parcurgerea
+        if (verifyName(tempFileName) == 0)//verific daca e director, pentru a putea continua parcurgerea
         {
-            treeSINGLE(tempFileName);
+            treeSINGLE(tempFileName, globalSaveDirectory);
         }
 
         struct stat buffer;
@@ -209,6 +203,7 @@ void treeSINGLE(char *filename)//versiunea cu un singur fisier
             perror("Could not get data!\n");
             exit(-1);
         }
+
 
         // daca e se poate cu append deschis
 
@@ -229,23 +224,29 @@ void treeSINGLE(char *filename)//versiunea cu un singur fisier
 
 
 
-
-
-
 int main(int argc, char *argv[])
 {
-    if (verifyArgumentsEXIT(argc) == 1)
+    if(argc != 3)
     {
         perror("Not enough arguments!\n");
         exit(EXIT_FAILURE);
     }
-
+    //while de la 1 la 10
+    //argv[11] = directorul unde vrem sa le salvam 
     char tempFileName[CHAR_MAX];
     strcpy(tempFileName, argv[1]);
+    
+
+    if(verifyName(argv[2]) != 0)
+    {
+        perror("Last argument is not a directory");
+        exit(-1);
+    }
+
 
     if (verifyName(argv[1]) == 0)
     {
-        tree(tempFileName);
+        treeSINGLE(tempFileName, argv[2]);
     }
 
     return 0;

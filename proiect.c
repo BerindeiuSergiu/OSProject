@@ -149,8 +149,7 @@ void tree(char *filename)
     }
 }
 
-
-
+///pt functia de verificare, deschid snapshot, compar cu ceea ce am pe moent in i-node-ul file-ului si daca s-a modificat adaug un modificat?///
 
 void treeSINGLE(char *filename, char *globalSaveDirectory)//versiunea cu un singur fisier
 {

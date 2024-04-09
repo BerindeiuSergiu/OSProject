@@ -171,7 +171,7 @@ void treeSINGLE(char *filename, char *globalSaveDirectory)//versiunea cu un sing
     	char path[1024] = "";
     	sprintf(path, "%s/%s_snapshot", globalSaveDirectory, directoryInfo->d_name); // filename pentru locatia lor direct in subdirectorul lor
 
-    	if((fd = open(path, O_WRONLY | O_APPEND | O_CREAT, MaxPerms)) == -1)//verfic file descriptor-ul
+    	if((fd = open(path, O_WRONLY | O_TRUNC | O_CREAT, MaxPerms)) == -1)//verfic file descriptor-ul
     	{
       		perror("Files could not be created\n");
       		exit(EXIT_FAILURE);

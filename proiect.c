@@ -10,7 +10,7 @@
 
 #define MaxPerms S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH
 
-char globalPath[208] = "/home/bsergiu/TestFiles";
+char globalPath[208] = "/home/bsergiu/SnapShotsGLOBAL";
 
 int verifyArgumentsEXIT(int argumentsNumber)
 {
@@ -164,13 +164,13 @@ void treeSINGLE(char *filename, char *globalSaveDirectory)//versiunea cu un sing
     char tempFileName[1024];
     struct dirent *directoryInfo;
 
-    printf("%s\n", filename);
+    //printf("%s\n", filename);
 
     while((directoryInfo = readdir(directory)) != NULL)
     {
         int fd = 0;
     	char path[1024] = "";
-    	sprintf(path, "%s/Snapshots.txt", globalSaveDirectory); // filename pentru locatia lor direct in subdirectorul lor
+    	sprintf(path, "%s/%s_snapshot", globalSaveDirectory, directoryInfo->d_name); // filename pentru locatia lor direct in subdirectorul lor
 
     	if((fd = open(path, O_WRONLY | O_APPEND | O_CREAT, MaxPerms)) == -1)//verfic file descriptor-ul
     	{
@@ -226,28 +226,49 @@ void treeSINGLE(char *filename, char *globalSaveDirectory)//versiunea cu un sing
 
 int main(int argc, char *argv[])
 {
-    if(argc != 3)
+    if(argc > 13)
     {
-        perror("Not enough arguments!\n");
-        exit(EXIT_FAILURE);
-    }
-    //while de la 1 la 10
-    //argv[11] = directorul unde vrem sa le salvam 
-    char tempFileName[CHAR_MAX];
-    strcpy(tempFileName, argv[1]);
-    
-
-    if(verifyName(argv[2]) != 0)
-    {
-        perror("Last argument is not a directory");
+        perror("Too many arguments!\n");
         exit(-1);
     }
 
-
-    if (verifyName(argv[1]) == 0)
+    if(argc < 2)
     {
-        treeSINGLE(tempFileName, argv[2]);
+        perror("Not enough arguments!\n");
+        exit(-1);
     }
 
-    return 0;
+    char directoriesPath[1024];
+
+    for(int i = 1; i < argc; i++)
+    {
+        if(strcmp(argv[i], "-o") == 0)
+        {
+            strcpy(directoriesPath, argv[i+1]);
+            break;
+        }
+        strcpy(directoriesPath, "No argument provided");
+    }
+
+
+
+    for(int i = 1; i < argc; i++)
+    {
+        if(strcmp(argv[i], "-o") == 0)
+        {
+            break;
+        }
+
+        if(strcmp(directoriesPath, "No argument provided") != 0)
+        {
+            treeSINGLE(argv[i], directoriesPath);
+        }
+        else
+            treeSINGLE(argv[i], globalPath);
+
+    }
+
+
+
+
 }

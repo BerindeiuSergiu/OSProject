@@ -5,36 +5,25 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+//pt fiecare argument primit se va creea un proces separat
+//daca nu e director nu voi creea proces, daca e -o nu creem director etc...
+//procesul face ce va face parintele, adica fiecare fiu in parte o sa se ocupe de un singur argument
+//acel fiu se va ocupa de tot, parintele creeaza procese separate si e responsabil sa astepte sa se termine fii, cate procese am creeat, dupa atatea trebuie sa astept:)
+
 
 #define MaxPerms S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH
 
 char globalPath[208] = "/home/bsergiu/SnapShotsGLOBAL";
-
-int verifyArgumentsEXIT(int argumentsNumber)
-{
-    if (argumentsNumber == 3)
-    {
-        return 0;
-    }
-    return 1;
-}
 
 int verifyName(char *DirectoryName)
 {
     struct stat path;
     lstat(DirectoryName, &path);
     return S_ISREG(path.st_mode);
-}
-
-void verifyDirEXIT(char *filename)
-{
-    if ((verifyName(filename)) != 0)
-    {
-        perror("Fisierul nu este de tip director");
-        exit(EXIT_FAILURE);
-    }
 }
 
 
@@ -83,75 +72,9 @@ void printVersion(int fd, struct stat buffer) // a lot of data, mi se pare ca as
 }
 
 // filename = path
-
-void tree(char *filename)
-{
-    DIR *directory = NULL;
-
-    if ((directory = openDirectory(filename)) == NULL) // verificam daca s-a deschis directorul corect
-    {
-        exit(-1);
-    }
-
-    char tempFileName[1024];
-    struct dirent *directoryInfo;
-
-    while ((directoryInfo = readdir(directory)) != NULL)
-    {
-        if ((strcmp(directoryInfo->d_name, ".") == 0) || (strcmp(directoryInfo->d_name, "..") == 0)) // trec peste . si ..
-        {
-            continue;
-        }
-
-        if (strstr(directoryInfo->d_name, "snapshot") != NULL) // verific daca are snapshot in nume, daca da, trec peste
-        {
-            continue;
-        }
-
-        sprintf(tempFileName, "%s/%s", filename, directoryInfo->d_name); // creez urmatorul "subdirector in care sa ma duc"
-        if (verifyName(tempFileName) == 0)//verific daca e director, pentru a putea continua parcurgerea
-        {
-            tree(tempFileName);
-        }
-
-        char path[1024] = "";
-        struct stat buffer;
-        int fd = 0;
-
-        sprintf(path, "%s/%s_snapshot", filename, directoryInfo->d_name); // filename pentru locatia lor direct in subdirectorul lor
-
-        if ((fd = open(path, O_WRONLY | O_APPEND | O_CREAT, MaxPerms)) == -1)//verfic file descriptor-ul
-        {
-            perror("Files could not be created\n");
-            exit(EXIT_FAILURE);
-        }
-
-        if (lstat(tempFileName, &buffer) == -1)//verific lstat
-        {
-            perror("Could not get data!\n");
-            exit(-1);
-        }
-
-        // daca e se poate cu append deschis
-
-        printVersion(fd, buffer); // scrie in fisier, deja e deschis "sanpshot-ul pentru scriere"
-
-        if (close(fd) == -1)
-        {
-            perror("Could not close the snapshot file\n");
-            exit(-3);
-        }
-    }
-    if (closedir(directory) == -1)
-    {
-        perror("Could not close the directory\n");
-        exit(-1);
-    }
-}
-
 ///pt functia de verificare, deschid snapshot, compar cu ceea ce am pe moent in i-node-ul file-ului si daca s-a modificat adaug un modificat?///
 
-void treeSINGLE(char *filename, char *globalSaveDirectory)//versiunea cu un singur fisier
+void treeSINGLE(char *filename, char *globalSaveDirectory)
 {
     DIR *directory = NULL;
 
@@ -163,13 +86,22 @@ void treeSINGLE(char *filename, char *globalSaveDirectory)//versiunea cu un sing
     char tempFileName[1024];
     struct dirent *directoryInfo;
 
-    //printf("%s\n", filename);
 
     while((directoryInfo = readdir(directory)) != NULL)
     {
         int fd = 0;
     	char path[1024] = "";
-    	sprintf(path, "%s/%s_snapshot", globalSaveDirectory, directoryInfo->d_name); // filename pentru locatia lor direct in subdirectorul lor
+       
+        if((strcmp(directoryInfo->d_name, ".") != 0) || (strcmp(directoryInfo->d_name, "..") != 0))
+    	    sprintf(path, "%s/%s_snapshot", globalSaveDirectory, directoryInfo->d_name); // filename pentru locatia lor direct in subdirectorul lor
+
+        //introducere existsSnapshot?
+        printf("%s\n", path);
+
+        if((strcmp(directoryInfo->d_name, ".") == 0) || (strcmp(directoryInfo->d_name, "..") == 0)) // trec peste . si ..
+        {
+            continue;
+        }
 
     	if((fd = open(path, O_WRONLY | O_TRUNC | O_CREAT, MaxPerms)) == -1)//verfic file descriptor-ul
     	{
@@ -177,11 +109,7 @@ void treeSINGLE(char *filename, char *globalSaveDirectory)//versiunea cu un sing
       		exit(EXIT_FAILURE);
       	}
 
-
-        if((strcmp(directoryInfo->d_name, ".") == 0) || (strcmp(directoryInfo->d_name, "..") == 0)) // trec peste . si ..
-        {
-            continue;
-        }
+        
 
         if(strstr(directoryInfo->d_name, "snapshot") != NULL) // verific daca are snapshot in nume, daca da, trec peste
         {
@@ -213,6 +141,7 @@ void treeSINGLE(char *filename, char *globalSaveDirectory)//versiunea cu un sing
             perror("Could not close the snapshot file\n");
             exit(-3);
         }
+
     }
     if (closedir(directory) == -1)
     {
@@ -234,40 +163,46 @@ int main(int argc, char *argv[])
     if(argc < 2)
     {
         perror("Not enough arguments!\n");
-        exit(-1);
+        exit(-2);
     }
 
-    char directoriesPath[1024];
+    char snapshotsPath[1024];
 
     for(int i = 1; i < argc; i++)
     {
         if(strcmp(argv[i], "-o") == 0)
         {
-            strcpy(directoriesPath, argv[i+1]);
+            strcpy(snapshotsPath, argv[i+1]);
             break;
         }
-        strcpy(directoriesPath, "No argument provided");
+        strcpy(snapshotsPath, "No argument provided");
     }
 
 
-
+    
     for(int i = 1; i < argc; i++)
     {
+        int pid = 0;
         if(strcmp(argv[i], "-o") == 0)
         {
             break;
         }
 
-        if(strcmp(directoriesPath, "No argument provided") != 0)
+        if((pid = fork()) < 0)
         {
-            treeSINGLE(argv[i], directoriesPath);
+            perror("Eroare la creearea fiului!\n");
+            exit(-3);
         }
-        else
-            treeSINGLE(argv[i], globalPath);
+        
+        if(pid == 0)
+        {
+            if(strcmp(snapshotsPath, "No argument provided") != 0)
+                treeSINGLE(argv[i], snapshotsPath);
+            else
+                treeSINGLE(argv[i], globalPath);
+            exit(1);
+        }
+        wait(NULL);
 
     }
-
-
-
-
 }

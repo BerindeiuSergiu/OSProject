@@ -8,6 +8,7 @@
 #include <sys/wait.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <errno.h>
 
 //pt fiecare argument primit se va creea un proces separat
 //daca nu e director nu voi creea proces, daca e -o nu creem director etc...
@@ -39,6 +40,64 @@ DIR *openDirectory(char *filename)
     return dir;
 }
 
+int verify_snapshot(int fd, struct stat buffer, char path[]) 
+{
+    // char st_dev[64];
+    // char st_ino[64];
+    // char st_mode[64];
+    // char st_nlink[64];
+    // char st_uid[64];
+    // char st_gid[64];
+    // char st_size[64];
+
+
+    // sprintf(st_dev, "%ld", buffer.st_dev);
+    // sprintf(st_ino, "%ld", buffer.st_ino);
+    // sprintf(st_mode, "%d", buffer.st_mode);
+    // sprintf(st_nlink, "%ld", buffer.st_nlink);
+    // sprintf(st_uid, "%d", buffer.st_uid);
+    // sprintf(st_gid, "%d", buffer.st_gid);
+    // sprintf(st_size, "%ld", buffer.st_size);
+
+    
+
+
+    path[strcspn(path, "\n")] = '\0';
+    
+    // char *x = "/home/bsergiu/Snapshots/dir3_4_3_snapshot";
+    
+    // printf("%s\n", x);
+    // int da = open(x, O_RDWR, MaxPerms);
+
+
+    if (lseek(fd, 0, SEEK_SET) == -1) 
+    {
+        perror("lseek");
+        return -1; 
+    }
+
+
+
+    char buf[1024];
+
+    int bytes_read = read(fd, buf, sizeof(buf));
+
+    if (bytes_read == -1) 
+    {
+        perror("read");
+        return -1; 
+    }
+    buf[bytes_read] = '\0';
+
+    printf("%s\n", path);
+    printf("%d\n", atoi(buf));
+
+
+
+    return 0;
+}
+
+
 void printVersion(int fd, struct stat buffer) // a lot of data, mi se pare ca asa e cel mai intuitiv
 {
     char st_dev[64];
@@ -60,8 +119,9 @@ void printVersion(int fd, struct stat buffer) // a lot of data, mi se pare ca as
 
 
 	//practic ce ajunge in fisier-ul snapshot
-    sprintf(data, "ID: %s\nI-NODE NUMBER: %s\nFile TYPE : %s\nNumber of HARDLINKS: %s\nID OWNER: %s\nID GROUP: %s\nSIZE: %s\n\n", st_dev, st_ino, st_mode, st_nlink, st_uid, st_gid, st_size);
+    //sprintf(data, "ID: %s\nI-NODE NUMBER: %s\nFile TYPE : %s\nNumber of HARDLINKS: %s\nID OWNER: %s\nID GROUP: %s\nSIZE: %s\n\n", st_dev, st_ino, st_mode, st_nlink, st_uid, st_gid, st_size);
 
+    sprintf(data, "%s ID\n%s I-NODE NUMBER\n%s File TYPE\n%s Number of HARDLINKS\n%s ID OWNER\n%s ID GROUP\n%s SIZE\n", st_dev, st_ino, st_mode, st_nlink, st_uid, st_gid, st_size);
 
 
     if (write(fd, data, strlen(data)) == -1)//verificam output write
@@ -90,31 +150,25 @@ void treeSINGLE(char *filename, char *globalSaveDirectory)
     while((directoryInfo = readdir(directory)) != NULL)
     {
         int fd = 0;
-    	char path[1024] = "";
+    	char path[1024];
        
         if((strcmp(directoryInfo->d_name, ".") != 0) || (strcmp(directoryInfo->d_name, "..") != 0))
     	    sprintf(path, "%s/%s_snapshot", globalSaveDirectory, directoryInfo->d_name); // filename pentru locatia lor direct in subdirectorul lor
 
         //introducere existsSnapshot?
-        printf("%s\n", path);
+
 
         if((strcmp(directoryInfo->d_name, ".") == 0) || (strcmp(directoryInfo->d_name, "..") == 0)) // trec peste . si ..
         {
             continue;
         }
 
-    	if((fd = open(path, O_WRONLY | O_TRUNC | O_CREAT, MaxPerms)) == -1)//verfic file descriptor-ul
-    	{
-      		perror("Files could not be created\n");
-      		exit(EXIT_FAILURE);
-      	}
-
-        
 
         if(strstr(directoryInfo->d_name, "snapshot") != NULL) // verific daca are snapshot in nume, daca da, trec peste
         {
             continue;
         }
+
 
         sprintf(tempFileName, "%s/%s", filename, directoryInfo->d_name); // creez urmatorul "subdirector in care sa ma duc"
         if (verifyName(tempFileName) == 0)//verific daca e director, pentru a putea continua parcurgerea
@@ -122,9 +176,8 @@ void treeSINGLE(char *filename, char *globalSaveDirectory)
             treeSINGLE(tempFileName, globalSaveDirectory);
         }
 
+
         struct stat buffer;
-
-
         if (lstat(tempFileName, &buffer) == -1)//verific lstat
         {
             perror("Could not get data!\n");
@@ -132,9 +185,19 @@ void treeSINGLE(char *filename, char *globalSaveDirectory)
         }
 
 
-        // daca e se poate cu append deschis
+    	if((fd = open(path, O_RDWR | O_CREAT | O_EXCL, MaxPerms)) == -1)//verfic file descriptor-ul
+    	{
+            if((fd = open(path, O_RDWR, MaxPerms)) == -1)
+            {
+                perror("naspa");
+                exit(EXIT_FAILURE);
+            }
+      		verify_snapshot(fd, buffer, path);
+      	}else 
+        {
+            printVersion(fd, buffer); // scrie in fisier, deja e deschis "snapshot-ul pentru scriere"
+        }
 
-        printVersion(fd, buffer); // scrie in fisier, deja e deschis "sanpshot-ul pentru scriere"
 
         if (close(fd) == -1)
         {

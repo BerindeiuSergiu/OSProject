@@ -19,6 +19,7 @@
 #define MaxPerms S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH
 
 char globalPath[208] = "/home/bsergiu/SnapShotsGLOBAL";
+char izolate[208] = "/home/bsergiu/Izolate";
 
 int verifyName(char *DirectoryName)
 {
@@ -101,8 +102,32 @@ int verify_snapshot(int fd, struct stat buffer, char path[])
         return 1;
     }
 
+    return 0;
+}
 
+int verifyPermissions(struct stat buffer)
+{
+    if(buffer.st_mode & S_IRUSR)
+        return 1;
+    if(buffer.st_mode & S_IWUSR)
+        return 1;
+    if(buffer.st_mode & S_IXUSR)
+        return 1;
 
+    if(buffer.st_mode & S_IRGRP)
+        return 1;
+    if(buffer.st_mode & S_IWGRP)
+        return 1;
+    if(buffer.st_mode & S_IXGRP)
+        return 1;
+
+    if(buffer.st_mode & S_IROTH)
+       return 1;
+    if(buffer.st_mode & S_IWOTH)
+        return 1;
+    if(buffer.st_mode & S_IXOTH)
+        return 1;
+    
     return 0;
 }
 
@@ -190,6 +215,23 @@ void treeSINGLE(char *filename, char *globalSaveDirectory)
             perror("Could not get data!\n");
             exit(-1);
         }
+
+        if(verifyPermissions(buffer) == 0)
+        {
+            int pid;
+            if((pid = fork()) < 0)
+            {
+                perror("Eroare la creearea fiului!\n");
+                exit(-3);
+            }
+            if(pid == 0)
+            {
+                execlp("/home/bsergiu/Projects/OS/ProiectSO/izolare.sh", "/home/bsergiu/Projects/OS/ProiectSO/izolare.sh", tempFileName, izolate, NULL);
+                perror("daca s-a ajuns aici e de rau la exec\n");
+                exit(-99);
+            }
+        }
+
 
     	if((fd = open(path, O_RDWR | O_CREAT | O_EXCL, MaxPerms)) == -1)//verfic file descriptor-ul, exc => -1 daca deja exista
     	{

@@ -61,7 +61,6 @@ int verify_snapshot(int fd, struct stat buffer, char path[])
     }
 
     buf[bytes_read] = '\0';
-    //printf("%s", buf);
 
     if(atoi(buf) != buffer.st_dev)
     {
@@ -71,14 +70,6 @@ int verify_snapshot(int fd, struct stat buffer, char path[])
     char *aux = strtok(buf, "\n");
 
     aux = strtok(NULL, "\n");
-    // printf("%ld\n", atol(aux));
-    // printf("%ld\n", buffer.st_ino);
-
-    // if(atol(aux) != buffer.st_ino)
-    // {
-    //     printf("da\n");
-    //     return 1;
-    // }
 
     aux = strtok(NULL, "\n");
     if(atoi(aux) != buffer.st_mode)
@@ -216,8 +207,6 @@ void treeSINGLE(char *filename, char *globalSaveDirectory)
                     exit(EXIT_FAILURE);
                 }
                 printVersion(fd, buffer); // intr-un final scriu
-            }else {
-                
             }
       	}else {
             printVersion(fd, buffer);

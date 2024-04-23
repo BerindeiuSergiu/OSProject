@@ -42,33 +42,8 @@ DIR *openDirectory(char *filename)
 
 int verify_snapshot(int fd, struct stat buffer, char path[]) 
 {
-    // char st_dev[64];
-    // char st_ino[64];
-    // char st_mode[64];
-    // char st_nlink[64];
-    // char st_uid[64];
-    // char st_gid[64];
-    // char st_size[64];
-
-
-    // sprintf(st_dev, "%ld", buffer.st_dev);
-    // sprintf(st_ino, "%ld", buffer.st_ino);
-    // sprintf(st_mode, "%d", buffer.st_mode);
-    // sprintf(st_nlink, "%ld", buffer.st_nlink);
-    // sprintf(st_uid, "%d", buffer.st_uid);
-    // sprintf(st_gid, "%d", buffer.st_gid);
-    // sprintf(st_size, "%ld", buffer.st_size);
-
     
-
-
     path[strcspn(path, "\n")] = '\0';
-    
-    // char *x = "/home/bsergiu/Snapshots/dir3_4_3_snapshot";
-    
-    // printf("%s\n", x);
-    // int da = open(x, O_RDWR, MaxPerms);
-
 
     if (lseek(fd, 0, SEEK_SET) == -1) 
     {
@@ -76,10 +51,7 @@ int verify_snapshot(int fd, struct stat buffer, char path[])
         return -1; 
     }
 
-
-
     char buf[1024];
-
     int bytes_read = read(fd, buf, sizeof(buf));
 
     if (bytes_read == -1) 
@@ -87,10 +59,56 @@ int verify_snapshot(int fd, struct stat buffer, char path[])
         perror("read");
         return -1; 
     }
-    buf[bytes_read] = '\0';
 
-    printf("%s\n", path);
-    printf("%d\n", atoi(buf));
+    buf[bytes_read] = '\0';
+    //printf("%s", buf);
+
+    if(atoi(buf) != buffer.st_dev)
+    {
+        return 1;
+    }
+
+    char *aux = strtok(buf, "\n");
+
+    aux = strtok(NULL, "\n");
+    // printf("%ld\n", atol(aux));
+    // printf("%ld\n", buffer.st_ino);
+
+    // if(atol(aux) != buffer.st_ino)
+    // {
+    //     printf("da\n");
+    //     return 1;
+    // }
+
+    aux = strtok(NULL, "\n");
+    if(atoi(aux) != buffer.st_mode)
+    {
+        return 1;
+    }
+
+    aux = strtok(NULL, "\n");
+    if(atoi(aux) != buffer.st_nlink)
+    {
+        return 1;
+    }
+
+    aux = strtok(NULL, "\n");
+    if(atoi(aux) != buffer.st_uid)
+    {
+        return 1;
+    }
+
+    aux = strtok(NULL, "\n");
+    if(atoi(aux) != buffer.st_gid)
+    {
+        return 1;
+    }
+
+    aux = strtok(NULL, "\n");
+    if(atoi(aux) != buffer.st_size)
+    {
+        return 1;
+    }
 
 
 
@@ -119,7 +137,6 @@ void printVersion(int fd, struct stat buffer) // a lot of data, mi se pare ca as
 
 
 	//practic ce ajunge in fisier-ul snapshot
-    //sprintf(data, "ID: %s\nI-NODE NUMBER: %s\nFile TYPE : %s\nNumber of HARDLINKS: %s\nID OWNER: %s\nID GROUP: %s\nSIZE: %s\n\n", st_dev, st_ino, st_mode, st_nlink, st_uid, st_gid, st_size);
 
     sprintf(data, "%s ID\n%s I-NODE NUMBER\n%s File TYPE\n%s Number of HARDLINKS\n%s ID OWNER\n%s ID GROUP\n%s SIZE\n", st_dev, st_ino, st_mode, st_nlink, st_uid, st_gid, st_size);
 
@@ -155,7 +172,6 @@ void treeSINGLE(char *filename, char *globalSaveDirectory)
         if((strcmp(directoryInfo->d_name, ".") != 0) || (strcmp(directoryInfo->d_name, "..") != 0))
     	    sprintf(path, "%s/%s_snapshot", globalSaveDirectory, directoryInfo->d_name); // filename pentru locatia lor direct in subdirectorul lor
 
-        //introducere existsSnapshot?
 
 
         if((strcmp(directoryInfo->d_name, ".") == 0) || (strcmp(directoryInfo->d_name, "..") == 0)) // trec peste . si ..
@@ -184,20 +200,28 @@ void treeSINGLE(char *filename, char *globalSaveDirectory)
             exit(-1);
         }
 
-
-    	if((fd = open(path, O_RDWR | O_CREAT | O_EXCL, MaxPerms)) == -1)//verfic file descriptor-ul
+    	if((fd = open(path, O_RDWR | O_CREAT | O_EXCL, MaxPerms)) == -1)//verfic file descriptor-ul, exc => -1 daca deja exista
     	{
-            if((fd = open(path, O_RDWR, MaxPerms)) == -1)
+            if((fd = open(path, O_RDWR, MaxPerms)) == -1) //redeschid pentru scriere si pentru verificare in caz de crapa
             {
-                perror("naspa");
+                perror("naspa\n");
                 exit(EXIT_FAILURE);
             }
-      		verify_snapshot(fd, buffer, path);
-      	}else 
-        {
-            printVersion(fd, buffer); // scrie in fisier, deja e deschis "snapshot-ul pentru scriere"
+      		if(verify_snapshot(fd, buffer, path) == 1) //verific daca nu s-a modificat
+            {
+                printf("FISIERUL: %s s-a modificat\n", path);
+                if((fd = open(path, O_RDWR | O_TRUNC | O_CREAT, MaxPerms)) == -1) //redeschid pentru suprascriere
+                {
+                    perror("naspa");
+                    exit(EXIT_FAILURE);
+                }
+                printVersion(fd, buffer); // intr-un final scriu
+            }else {
+                
+            }
+      	}else {
+            printVersion(fd, buffer);
         }
-
 
         if (close(fd) == -1)
         {

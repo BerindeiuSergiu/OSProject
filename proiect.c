@@ -9,9 +9,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
-
-
-
 #define MaxPerms S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH
 
 char globalPath[208] = "/home/bsergiu/SnapShotsGLOBAL";
@@ -20,9 +17,14 @@ char izolationPath[1024];
 int verifyName(char *DirectoryName)
 {
     struct stat path;
-    lstat(DirectoryName, &path);
-    return S_ISREG(path.st_mode);
+    if(lstat(DirectoryName, &path) == -1)
+    {
+        perror("Could not get data!\n");
+        exit(-1);
+    }
+    return S_ISDIR(path.st_mode);
 }
+
 
 
 DIR *openDirectory(char *filename)
@@ -164,7 +166,6 @@ void printVersion(int fd, struct stat buffer) // a lot of data, mi se pare ca as
 void treeSINGLE(char *filename, char *globalSaveDirectory)
 {
     DIR *directory = NULL;
-
     if((directory = openDirectory(filename)) == NULL)
     {
         exit(-1);
@@ -183,21 +184,14 @@ void treeSINGLE(char *filename, char *globalSaveDirectory)
     	    sprintf(path, "%s/%s_snapshot", globalSaveDirectory, directoryInfo->d_name); // filename pentru locatia lor direct in subdirectorul lor
 
 
-
         if((strcmp(directoryInfo->d_name, ".") == 0) || (strcmp(directoryInfo->d_name, "..") == 0)) // trec peste . si ..
         {
             continue;
         }
 
 
-        if(strstr(directoryInfo->d_name, "snapshot") != NULL) // verific daca are snapshot in nume, daca da, trec peste
-        {
-            continue;
-        }
-
-
         sprintf(tempFileName, "%s/%s", filename, directoryInfo->d_name); // creez urmatorul "subdirector in care sa ma duc"
-        if (verifyName(tempFileName) == 0)//verific daca e director, pentru a putea continua parcurgerea
+        if (verifyName(tempFileName) == 1)//verific daca e director, pentru a putea continua parcurgerea
         {
             treeSINGLE(tempFileName, globalSaveDirectory);
         }
@@ -212,18 +206,22 @@ void treeSINGLE(char *filename, char *globalSaveDirectory)
 
         if(verifyPermissions(buffer) == 0)
         {
+            
             int pid;
             if((pid = fork()) < 0)
             {
                 perror("Eroare la creearea fiului!\n");
                 exit(-3);
             }
+
             if(pid == 0)
             {
                 execlp("/home/bsergiu/Projects/OS/ProiectSO/izolare.sh", "/home/bsergiu/Projects/OS/ProiectSO/izolare.sh", tempFileName, izolationPath, NULL);
                 perror("daca s-a ajuns aici e de rau la exec\n");
                 exit(-99);
             }
+            printf("Fisierul %s este posibil infectat!\n", tempFileName);
+            wait(NULL);
         }
 
 
@@ -279,7 +277,6 @@ int main(int argc, char *argv[])
     }
 
     char snapshotsPath[1024];
-    
 
     for(int i = 1; i < argc; i++)
     {
@@ -301,16 +298,23 @@ int main(int argc, char *argv[])
         strcpy(izolationPath, "No argument provided");
     }
 
-    printf("%s\n", izolationPath);
+    int cnt_wait = 0;
     
     for(int i = 1; i < argc; i++)
     {
-        int pid = 0;
+        
         if(strcmp(argv[i], "-o") == 0)
         {
             break;
         }
 
+        if(verifyName(argv[i]) == 0)
+        {
+            continue;
+        }
+        
+        cnt_wait++;
+        int pid = 0;
         if((pid = fork()) < 0)
         {
             perror("Eroare la creearea fiului!\n");
@@ -325,7 +329,11 @@ int main(int argc, char *argv[])
                 treeSINGLE(argv[i], globalPath);
             exit(1);
         }
-        wait(NULL);
-
     }
+
+    for(int i = 0 ; i < cnt_wait; i++)
+    {
+        wait(NULL);   
+    }
+    return 0;
 }

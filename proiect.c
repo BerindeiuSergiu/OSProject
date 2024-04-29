@@ -10,16 +10,12 @@
 #include <unistd.h>
 #include <errno.h>
 
-//pt fiecare argument primit se va creea un proces separat
-//daca nu e director nu voi creea proces, daca e -o nu creem director etc...
-//procesul face ce va face parintele, adica fiecare fiu in parte o sa se ocupe de un singur argument
-//acel fiu se va ocupa de tot, parintele creeaza procese separate si e responsabil sa astepte sa se termine fii, cate procese am creeat, dupa atatea trebuie sa astept:)
 
 
 #define MaxPerms S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH
 
 char globalPath[208] = "/home/bsergiu/SnapShotsGLOBAL";
-char izolate[208] = "/home/bsergiu/Izolate";
+char izolationPath[1024];
 
 int verifyName(char *DirectoryName)
 {
@@ -49,7 +45,7 @@ int verify_snapshot(int fd, struct stat buffer, char path[])
     if (lseek(fd, 0, SEEK_SET) == -1) 
     {
         perror("lseek");
-        return -1; 
+        exit(EXIT_FAILURE);
     }
 
     char buf[1024];
@@ -58,7 +54,7 @@ int verify_snapshot(int fd, struct stat buffer, char path[])
     if (bytes_read == -1) 
     {
         perror("read");
-        return -1; 
+        exit(EXIT_FAILURE);
     }
 
     buf[bytes_read] = '\0';
@@ -113,14 +109,12 @@ int verifyPermissions(struct stat buffer)
         return 1;
     if(buffer.st_mode & S_IXUSR)
         return 1;
-
     if(buffer.st_mode & S_IRGRP)
         return 1;
     if(buffer.st_mode & S_IWGRP)
         return 1;
     if(buffer.st_mode & S_IXGRP)
         return 1;
-
     if(buffer.st_mode & S_IROTH)
        return 1;
     if(buffer.st_mode & S_IWOTH)
@@ -226,7 +220,7 @@ void treeSINGLE(char *filename, char *globalSaveDirectory)
             }
             if(pid == 0)
             {
-                execlp("/home/bsergiu/Projects/OS/ProiectSO/izolare.sh", "/home/bsergiu/Projects/OS/ProiectSO/izolare.sh", tempFileName, izolate, NULL);
+                execlp("/home/bsergiu/Projects/OS/ProiectSO/izolare.sh", "/home/bsergiu/Projects/OS/ProiectSO/izolare.sh", tempFileName, izolationPath, NULL);
                 perror("daca s-a ajuns aici e de rau la exec\n");
                 exit(-99);
             }
@@ -272,7 +266,7 @@ void treeSINGLE(char *filename, char *globalSaveDirectory)
 
 int main(int argc, char *argv[])
 {
-    if(argc > 13)
+    if(argc > 15)
     {
         perror("Too many arguments!\n");
         exit(-1);
@@ -285,6 +279,7 @@ int main(int argc, char *argv[])
     }
 
     char snapshotsPath[1024];
+    
 
     for(int i = 1; i < argc; i++)
     {
@@ -296,7 +291,17 @@ int main(int argc, char *argv[])
         strcpy(snapshotsPath, "No argument provided");
     }
 
+    for(int i = 1; i < argc; i++)
+    {
+        if(strcmp(argv[i], "-x") == 0)
+        {
+            strcpy(izolationPath, argv[i+1]);
+            break;
+        }
+        strcpy(izolationPath, "No argument provided");
+    }
 
+    printf("%s\n", izolationPath);
     
     for(int i = 1; i < argc; i++)
     {

@@ -386,6 +386,11 @@ int main(int argc, char *argv[]) // programul este conceput a.i sa primeasca cal
             int nrFisiereCorupte = 0;
             if(strcmp(snapshotsPath, "No argument provided") != 0)
                 treeSINGLE(argv[i], snapshotsPath, &nrFisiereCorupte);
+            else
+            {
+                perror("No save file provided!\n");
+                exit(EXIT_FAILURE);
+            }
             exit(nrFisiereCorupte);
         }
     }
@@ -397,10 +402,10 @@ int main(int argc, char *argv[]) // programul este conceput a.i sa primeasca cal
         pid_t pid = wait(&status);
         if(WIFEXITED(status))
         {
-            printf("IN PARENT : Child process %d terminated with pid %d and exit code %d\n", i+1, pid, WEXITSTATUS(status));
+            printf("IN PARENT : Child process %d terminated with pid %d and exit code %d(nr. de fisiere corupte)\n", i+1, pid, WEXITSTATUS(status));
         }
         else {
-            perror("Eroare la copil main\n");
+            perror("Eroare la copil in main\n");
             exit(EXIT_FAILURE);
         } 
     }

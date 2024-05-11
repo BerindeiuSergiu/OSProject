@@ -11,7 +11,6 @@
 #include <errno.h>
 #define MaxPerms S_IRUSR | S_IWUSR | S_IXUSR | S_IRGRP | S_IWGRP | S_IXGRP | S_IROTH | S_IWOTH | S_IXOTH
 
-char globalPath[208] = "/home/bsergiu/SnapShotsGLOBAL";
 char izolationPath[1024];
 
 int verifyName(char *DirectoryName)
@@ -44,7 +43,7 @@ int verify_snapshot(int fd, struct stat buffer, char path[])
     
     path[strcspn(path, "\n")] = '\0';
 
-    if (lseek(fd, 0, SEEK_SET) == -1) 
+    if (lseek(fd, 0, SEEK_SET) == -1) //incep verificarea de la inceputul fisierului
     {
         perror("lseek");
         exit(EXIT_FAILURE);
@@ -103,7 +102,7 @@ int verify_snapshot(int fd, struct stat buffer, char path[])
     return 0;
 }
 
-int verifyPermissions(struct stat buffer)
+int verifyPermissions(struct stat buffer) //functie pentru verificare de permisiuni
 {
     if(buffer.st_mode & S_IRUSR)
         return 1;
@@ -156,19 +155,19 @@ void printVersion(int fd, struct stat buffer) // a lot of data, mi se pare ca as
     if (write(fd, data, strlen(data)) == -1)//verificam output write
     {
         perror("Could not write!\n");
-        exit(-2);
+        exit(EXIT_FAILURE);
     }
 }
 
 // filename = path
 ///pt functia de verificare, deschid snapshot, compar cu ceea ce am pe moent in i-node-ul file-ului si daca s-a modificat adaug un modificat?///
 
-void treeSINGLE(char *filename, char *globalSaveDirectory)
+void treeSINGLE(char *filename, char *globalSaveDirectory, int *nrFisiereCorupte)
 {
     DIR *directory = NULL;
     if((directory = openDirectory(filename)) == NULL)
     {
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     char tempFileName[1024];
@@ -193,7 +192,7 @@ void treeSINGLE(char *filename, char *globalSaveDirectory)
         sprintf(tempFileName, "%s/%s", filename, directoryInfo->d_name); // creez urmatorul "subdirector in care sa ma duc"
         if (verifyName(tempFileName) == 1)//verific daca e director, pentru a putea continua parcurgerea
         {
-            treeSINGLE(tempFileName, globalSaveDirectory);
+            treeSINGLE(tempFileName, globalSaveDirectory, nrFisiereCorupte);
         }
 
 
@@ -201,33 +200,94 @@ void treeSINGLE(char *filename, char *globalSaveDirectory)
         if (lstat(tempFileName, &buffer) == -1)//verific lstat
         {
             perror("Could not get data!\n");
-            exit(-1);
+            exit(EXIT_FAILURE);
         }
 
         if(verifyPermissions(buffer) == 0)
         {
             
+            int pfd[2];
             int pid;
+            FILE *stream;
+
+            if(pipe(pfd) < 0)
+            {
+                perror("Eroare la pipe\n");
+                exit(EXIT_FAILURE);
+            }
+
             if((pid = fork()) < 0)
             {
-                perror("Eroare la creearea fiului!\n");
-                exit(-3);
+                perror("Eroare la creearea copilului\n");
+                exit(EXIT_FAILURE);
             }
 
             if(pid == 0)
             {
-                execlp("/home/bsergiu/Projects/OS/ProiectSO/izolare.sh", "/home/bsergiu/Projects/OS/ProiectSO/izolare.sh", tempFileName, izolationPath, NULL);
-                perror("daca s-a ajuns aici e de rau la exec\n");
-                exit(-99);
+                close(pfd[0]);
+                dup2(pfd[1], 1);
+
+                execlp("./script.sh", "./script.sh", tempFileName, izolationPath, NULL);
+                perror("Eroare la exec\n");
+                exit(EXIT_FAILURE);
+
             }
-            printf("Fisierul %s este posibil infectat!\n", tempFileName);
-            wait(NULL);
+            //parinte
+
+            close(pfd[1]);
+
+            stream = fdopen(pfd[0], "r"); //trimit prin pipe calea fisierului corupt
+            char string[1024];
+            if(stream == NULL)
+            {
+                perror("Eroare citire pipe\n");
+                exit(EXIT_FAILURE);
+            }
+            fscanf(stream, "%s", string);
+
+            close(pfd[0]);
+            fclose(stream);
+
+            int status;
+            wait(&status);
+
+            if(WIFEXITED(status) == 0)
+            {
+                perror("Eroare la copil\n");
+                exit(EXIT_FAILURE);
+            }
+
+            string[strcspn(string, "\n")] = '\0';
+            if(strcmp(string, "Safe") != 0)
+            {
+                //printf("calea fisierului corupt este : %s\n", string); //string = calea fisierului corupt
+
+                char *fileName = strrchr(string, '/'); //ultima aparitie '/'
+                fileName++; // trecem de /
+
+                //printf("%s\n", fileName);
+
+                char locatieIzolare[2048];
+
+                sprintf(locatieIzolare, "%s/%s", izolationPath, fileName);
+
+                if(rename(string, locatieIzolare) != 0)
+                {
+                    perror("Eroare rename\n");
+                    exit(-1);
+                }
+
+                (*nrFisiereCorupte)++; //cresc numar de fisiere corupte
+
+                continue; // pt a nu face snapshot
+            }
+            
         }
 
 
     	if((fd = open(path, O_RDWR | O_CREAT | O_EXCL, MaxPerms)) == -1)//verfic file descriptor-ul, exc => -1 daca deja exista
     	{
-            if((fd = open(path, O_RDWR, MaxPerms)) == -1) //redeschid pentru scriere si pentru verificare in caz de crapa
+            if((fd = open(path, O_RDWR, MaxPerms)) == -1) //redeschid pentru scriere si pentru verificare in caz de eroare
             {
                 perror("naspa\n");
                 exit(EXIT_FAILURE);
@@ -249,31 +309,31 @@ void treeSINGLE(char *filename, char *globalSaveDirectory)
         if (close(fd) == -1)
         {
             perror("Could not close the snapshot file\n");
-            exit(-3);
+            exit(EXIT_FAILURE);
         }
 
     }
     if (closedir(directory) == -1)
     {
         perror("Could not close the directory\n");
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 }
 
 
 
-int main(int argc, char *argv[])
+int main(int argc, char *argv[]) // programul este conceput a.i sa primeasca calea absoulta in ./run
 {
     if(argc > 15)
     {
         perror("Too many arguments!\n");
-        exit(-1);
+        exit(EXIT_FAILURE);
     }
 
     if(argc < 2)
     {
         perror("Not enough arguments!\n");
-        exit(-2);
+        exit(EXIT_FAILURE);
     }
 
     char snapshotsPath[1024];
@@ -318,22 +378,31 @@ int main(int argc, char *argv[])
         if((pid = fork()) < 0)
         {
             perror("Eroare la creearea fiului!\n");
-            exit(-3);
+            exit(EXIT_FAILURE);
         }
         
         if(pid == 0)
         {
+            int nrFisiereCorupte = 0;
             if(strcmp(snapshotsPath, "No argument provided") != 0)
-                treeSINGLE(argv[i], snapshotsPath);
-            else
-                treeSINGLE(argv[i], globalPath);
-            exit(1);
+                treeSINGLE(argv[i], snapshotsPath, &nrFisiereCorupte);
+            exit(nrFisiereCorupte);
         }
     }
+    printf("\n");
 
     for(int i = 0 ; i < cnt_wait; i++)
     {
-        wait(NULL);   
+        int status;
+        pid_t pid = wait(&status);
+        if(WIFEXITED(status))
+        {
+            printf("IN PARENT : Child process %d terminated with pid %d and exit code %d\n", i+1, pid, WEXITSTATUS(status));
+        }
+        else {
+            perror("Eroare la copil main\n");
+            exit(EXIT_FAILURE);
+        } 
     }
     return 0;
 }
